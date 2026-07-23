@@ -6,7 +6,7 @@ const registry = new Map(registeredThemes.map((theme) => [theme.manifest.id, the
 
 if (registry.size !== registeredThemes.length) throw new Error("Bolas theme IDs must be unique.");
 
-export const DEFAULT_THEME_ID = "hearth.starter";
+export const DEFAULT_THEME_ID = "bolas.editorial";
 
 export function listRegisteredThemes() {
   return [...registeredThemes];
