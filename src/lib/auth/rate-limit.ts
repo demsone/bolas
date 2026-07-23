@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { eq, gt, inArray, lte } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { loginAttempts } from "@/lib/db/schema";
 import { getSecuritySettings, type SecuritySettings } from "@/lib/settings/repository";
@@ -28,12 +28,11 @@ async function context(db?: Database, settings?: SecuritySettings) {
 export async function loginAllowed(keys: LoginAttemptKey[], db?: Database, settings?: SecuritySettings) {
   const current = await context(db, settings);
   const now = new Date();
-  await current.db.delete(loginAttempts).where(lte(loginAttempts.resetAt, now));
-  const attempts = await Promise.all(keys.map((key) => current.db.select().from(loginAttempts)
-    .where(eq(loginAttempts.keyHash, key.keyHash)).limit(1)));
-  return attempts.every(([attempt]) => {
-    return !attempt || attempt.count < current.settings.maxLoginAttempts;
-  });
+  const attempts = await current.db.select().from(loginAttempts).where(and(
+    inArray(loginAttempts.keyHash, keys.map((key) => key.keyHash)),
+    gt(loginAttempts.resetAt, now),
+  ));
+  return attempts.every((attempt) => attempt.count < current.settings.maxLoginAttempts);
 }
 
 export async function recordFailedLogin(keys: LoginAttemptKey[], db?: Database, settings?: SecuritySettings) {

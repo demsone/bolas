@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { clearLoginAttempts, createLoginAttemptKeys, loginAllowed, recordFailedLogin } from "@/lib/auth/rate-limit";
 import { createSession } from "@/lib/auth/session";
@@ -12,7 +12,7 @@ export const maxDuration = 30;
 
 const credentials = z.object({
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(12),
+  password: z.string().min(1),
 });
 
 function backToLogin(request: NextRequest, error: "credentials" | "locked" | "unavailable") {
@@ -34,6 +34,7 @@ async function recordAudit(actorId: string | null, action: string, subjectId: st
 }
 
 export async function POST(request: NextRequest) {
+  console.info("[auth/login] request started");
   const origin = request.headers.get("origin");
   if (origin && origin !== request.nextUrl.origin) {
     return new Response("Invalid request origin.", { status: 403 });
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
     const attemptKeys = createLoginAttemptKeys(address, parsed.data.email);
 
     if (!(await loginAllowed(attemptKeys, getDb(), security))) {
+      console.warn("[auth/login] request rate-limited");
       return backToLogin(request, "locked");
     }
 
@@ -61,12 +63,22 @@ export async function POST(request: NextRequest) {
     if (!user || !(await verifyPassword(user.passwordHash, parsed.data.password))) {
       await recordFailedLogin(attemptKeys, getDb(), security);
       await recordAudit(null, "session.failed", null, { reason: "invalid_credentials" });
+      console.warn("[auth/login] credentials rejected");
       return backToLogin(request, "credentials");
     }
 
-    await clearLoginAttempts(attemptKeys);
-    await recordAudit(user.id, "session.created", user.id);
     await createSession(user.id, security.sessionDays);
+    console.info("[auth/login] session created");
+    after(async () => {
+      try {
+        await clearLoginAttempts(attemptKeys);
+        await recordAudit(user.id, "session.created", user.id);
+      } catch (error) {
+        console.error("[auth/login] post-response audit failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
   } catch (error) {
     console.error("[auth/login] failed", {
       message: error instanceof Error ? error.message : String(error),
