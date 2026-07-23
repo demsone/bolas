@@ -1,15 +1,12 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { auditEvents } from "@/lib/db/schema";
-import { clearLoginAttempts, createLoginAttemptKeys, loginAllowed, recordFailedLogin } from "@/lib/auth/rate-limit";
 import { createSession, deleteSession } from "@/lib/auth/session";
-import { createUser, getUserByEmail, hasAnyUser, hashPassword, verifyPassword } from "@/lib/auth/users";
-import { getSecuritySettings } from "@/lib/settings/repository";
+import { createUser, hasAnyUser, hashPassword } from "@/lib/auth/users";
 
 export type AuthActionState = { error?: string };
 
@@ -21,11 +18,6 @@ const credentials = z.object({
 const ownerDetails = credentials.extend({
   displayName: z.string().trim().min(2, "Enter your name.").max(80),
 });
-
-async function clientAddress(trustProxyHeaders: boolean) {
-  if (!trustProxyHeaders) return "local";
-  return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-}
 
 async function recordAudit(actorId: string | null, action: string, subjectId: string | null, detail?: Record<string, string>) {
   await getDb().insert(auditEvents).values({
@@ -60,33 +52,6 @@ export async function setupOwner(_: AuthActionState, formData: FormData): Promis
   });
   await recordAudit(userId, "owner.created", userId);
   await createSession(userId);
-  redirect("/admin");
-}
-
-export async function login(_: AuthActionState, formData: FormData): Promise<AuthActionState> {
-  const parsed = credentials.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
-  if (!parsed.success) return { error: "Enter your email and password." };
-
-  const security = await getSecuritySettings(getDb());
-  const address = await clientAddress(security.trustProxyHeaders);
-  const attemptKeys = createLoginAttemptKeys(address, parsed.data.email);
-  if (!(await loginAllowed(attemptKeys, getDb(), security))) {
-    return { error: `Too many attempts. Try again in ${security.lockoutMinutes} minutes.` };
-  }
-
-  const user = await getUserByEmail(parsed.data.email);
-  if (!user || !(await verifyPassword(user.passwordHash, parsed.data.password))) {
-    await recordFailedLogin(attemptKeys, getDb(), security);
-    await recordAudit(null, "session.failed", null, { reason: "invalid_credentials" });
-    return { error: "Email or password is not recognised." };
-  }
-
-  await clearLoginAttempts(attemptKeys);
-  await recordAudit(user.id, "session.created", user.id);
-  await createSession(user.id, security.sessionDays);
   redirect("/admin");
 }
 

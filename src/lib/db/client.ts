@@ -21,6 +21,10 @@ export function getDb() {
       ssl: process.env.DATABASE_SSL === "false" ? false : "require",
       connect_timeout: Number(process.env.DATABASE_CONNECT_TIMEOUT ?? 10),
       idle_timeout: 20,
+      connection: {
+        application_name: "bolas",
+        statement_timeout: Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? 10_000),
+      },
     });
     database = drizzle(sqlClient, { schema });
   }
