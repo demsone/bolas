@@ -22,8 +22,8 @@ const ownerDetails = credentials.extend({
   displayName: z.string().trim().min(2, "Enter your name.").max(80),
 });
 
-async function clientAddress() {
-  if (!(await getSecuritySettings(getDb())).trustProxyHeaders) return "local";
+async function clientAddress(trustProxyHeaders: boolean) {
+  if (!trustProxyHeaders) return "local";
   return (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 }
 
@@ -70,9 +70,9 @@ export async function login(_: AuthActionState, formData: FormData): Promise<Aut
   });
   if (!parsed.success) return { error: "Enter your email and password." };
 
-  const address = await clientAddress();
-  const attemptKeys = createLoginAttemptKeys(address, parsed.data.email);
   const security = await getSecuritySettings(getDb());
+  const address = await clientAddress(security.trustProxyHeaders);
+  const attemptKeys = createLoginAttemptKeys(address, parsed.data.email);
   if (!(await loginAllowed(attemptKeys, getDb(), security))) {
     return { error: `Too many attempts. Try again in ${security.lockoutMinutes} minutes.` };
   }
@@ -86,7 +86,7 @@ export async function login(_: AuthActionState, formData: FormData): Promise<Aut
 
   await clearLoginAttempts(attemptKeys);
   await recordAudit(user.id, "session.created", user.id);
-  await createSession(user.id);
+  await createSession(user.id, security.sessionDays);
   redirect("/admin");
 }
 

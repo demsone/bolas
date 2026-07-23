@@ -19,6 +19,8 @@ export function getDb() {
       max: 1,
       prepare: false,
       ssl: process.env.DATABASE_SSL === "false" ? false : "require",
+      connect_timeout: Number(process.env.DATABASE_CONNECT_TIMEOUT ?? 10),
+      idle_timeout: 20,
     });
     database = drizzle(sqlClient, { schema });
   }

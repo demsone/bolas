@@ -22,9 +22,9 @@ export type CurrentUser = {
   role: Role;
 };
 
-export async function createSession(userId: string) {
+export async function createSession(userId: string, sessionDays?: number) {
   const token = randomBytes(32).toString("base64url");
-  const sessionMaxAge = (await getSecuritySettings(getDb())).sessionDays * 24 * 60 * 60;
+  const sessionMaxAge = (sessionDays ?? (await getSecuritySettings(getDb())).sessionDays) * 24 * 60 * 60;
   const expiresAt = new Date(Date.now() + sessionMaxAge * 1000);
   const now = new Date();
   const userAgent = (await headers()).get("user-agent")?.slice(0, 240) ?? null;
