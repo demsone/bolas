@@ -7,31 +7,31 @@ import type { ContentInput, ContentKind, TaxonomyKind } from "./types";
 type Database = ReturnType<typeof getDb>;
 
 export async function createContentRecord(db: Database, input: ContentInput, authorId: string) {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => {
     const now = new Date();
     const id = randomUUID();
     const { termIds, ...content } = input;
-    await tx.insert(contentItems).values({
+    tx.insert(contentItems).values({
       id,
       ...content,
       authorId,
       publishedAt: input.state === "published" ? now : null,
       createdAt: now,
       updatedAt: now,
-    });
+    }).run();
     if (termIds.length > 0) {
-      await tx.insert(contentTaxonomyTerms).values(termIds.map((termId) => ({ contentItemId: id, termId })));
+      tx.insert(contentTaxonomyTerms).values(termIds.map((termId) => ({ contentItemId: id, termId }))).run();
     }
     return id;
   });
 }
 
 export async function updateContentRecord(db: Database, id: string, input: ContentInput, userId: string) {
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(contentItems).where(eq(contentItems.id, id)).limit(1);
+  return db.transaction((tx) => {
+    const [current] = tx.select().from(contentItems).where(eq(contentItems.id, id)).limit(1).all();
     if (!current) return false;
 
-    await tx.insert(contentRevisions).values({
+    tx.insert(contentRevisions).values({
       id: randomUUID(),
       contentItemId: current.id,
       title: current.title,
@@ -46,29 +46,29 @@ export async function updateContentRecord(db: Database, id: string, input: Conte
       heroMediaId: current.heroMediaId,
       savedById: userId,
       createdAt: new Date(),
-    });
+    }).run();
 
     const { termIds, ...content } = input;
-    await tx.update(contentItems).set({
+    tx.update(contentItems).set({
       ...content,
       publishedAt: input.state === "published" ? current.publishedAt ?? new Date() : null,
       updatedAt: new Date(),
-    }).where(eq(contentItems.id, id));
-    await tx.delete(contentTaxonomyTerms).where(eq(contentTaxonomyTerms.contentItemId, id));
+    }).where(eq(contentItems.id, id)).run();
+    tx.delete(contentTaxonomyTerms).where(eq(contentTaxonomyTerms.contentItemId, id)).run();
     if (termIds.length > 0) {
-      await tx.insert(contentTaxonomyTerms).values(termIds.map((termId) => ({ contentItemId: id, termId })));
+      tx.insert(contentTaxonomyTerms).values(termIds.map((termId) => ({ contentItemId: id, termId }))).run();
     }
     return true;
   });
 }
 
 export async function restoreRevisionRecord(db: Database, contentId: string, revisionId: string, userId: string) {
-  return db.transaction(async (tx) => {
-    const [current] = await tx.select().from(contentItems).where(eq(contentItems.id, contentId)).limit(1);
-    const [revision] = await tx.select().from(contentRevisions).where(and(eq(contentRevisions.id, revisionId), eq(contentRevisions.contentItemId, contentId))).limit(1);
+  return db.transaction((tx) => {
+    const [current] = tx.select().from(contentItems).where(eq(contentItems.id, contentId)).limit(1).all();
+    const [revision] = tx.select().from(contentRevisions).where(and(eq(contentRevisions.id, revisionId), eq(contentRevisions.contentItemId, contentId))).limit(1).all();
     if (!current || !revision) return false;
 
-    await tx.insert(contentRevisions).values({
+    tx.insert(contentRevisions).values({
       id: randomUUID(),
       contentItemId: current.id,
       title: current.title,
@@ -79,9 +79,9 @@ export async function restoreRevisionRecord(db: Database, contentId: string, rev
       heroMediaId: current.heroMediaId,
       savedById: userId,
       createdAt: new Date(),
-    });
+    }).run();
 
-    await tx.update(contentItems).set({
+    tx.update(contentItems).set({
       title: revision.title,
       excerpt: revision.excerpt,
       seoTitle: revision.seoTitle,
@@ -93,7 +93,7 @@ export async function restoreRevisionRecord(db: Database, contentId: string, rev
       layout: revision.layout,
       heroMediaId: revision.heroMediaId,
       updatedAt: new Date(),
-    }).where(eq(contentItems.id, contentId));
+    }).where(eq(contentItems.id, contentId)).run();
     return true;
   });
 }

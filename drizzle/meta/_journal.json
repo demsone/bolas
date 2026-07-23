@@ -1,12 +1,12 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1784834481798,
-      "tag": "0000_abandoned_warpath",
+      "version": "6",
+      "when": 1784844016067,
+      "tag": "0000_old_odin",
       "breakpoints": true
     }
   ]

@@ -1,6 +1,9 @@
-import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-export const users = pgTable(
+const timestamp = (name: string) => integer(name, { mode: "timestamp_ms" });
+const boolean = (name: string) => integer(name, { mode: "boolean" });
+
+export const users = sqliteTable(
   "users",
   {
     id: text("id").primaryKey(),
@@ -8,27 +11,27 @@ export const users = pgTable(
     displayName: text("display_name").notNull(),
     passwordHash: text("password_hash").notNull(),
     role: text("role", { enum: ["owner", "admin", "editor"] }).notNull().default("editor"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [uniqueIndex("users_email_unique").on(table.email)],
 );
 
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    lastSeenAt: timestamp("last_seen_at"),
     userAgent: text("user_agent"),
   },
   (table) => [uniqueIndex("sessions_token_hash_unique").on(table.tokenHash)],
 );
 
-export const mediaAssets = pgTable(
+export const mediaAssets = sqliteTable(
   "media_assets",
   {
     id: text("id").primaryKey(),
@@ -42,13 +45,13 @@ export const mediaAssets = pgTable(
     caption: text("caption"),
     sha256: text("sha256").notNull(),
     uploadedById: text("uploaded_by_id").notNull().references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [uniqueIndex("media_assets_storage_key_unique").on(table.storageKey)],
 );
 
-export const contentItems = pgTable(
+export const contentItems = sqliteTable(
   "content_items",
   {
     id: text("id").primaryKey(),
@@ -66,14 +69,14 @@ export const contentItems = pgTable(
     authorId: text("author_id").notNull().references(() => users.id),
     layout: text("layout", { enum: ["article", "scrollytelling"] }).notNull().default("article"),
     heroMediaId: text("hero_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
-    publishedAt: timestamp("published_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [uniqueIndex("content_items_slug_unique").on(table.slug)],
 );
 
-export const contentRevisions = pgTable("content_revisions", {
+export const contentRevisions = sqliteTable("content_revisions", {
   id: text("id").primaryKey(),
   contentItemId: text("content_item_id").notNull().references(() => contentItems.id),
   title: text("title").notNull(),
@@ -87,25 +90,25 @@ export const contentRevisions = pgTable("content_revisions", {
   layout: text("layout", { enum: ["article", "scrollytelling"] }).notNull().default("article"),
   heroMediaId: text("hero_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
   savedById: text("saved_by_id").notNull().references(() => users.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at").notNull(),
 });
 
-export const taxonomyTerms = pgTable(
+export const taxonomyTerms = sqliteTable(
   "taxonomy_terms",
   {
     id: text("id").primaryKey(),
     kind: text("kind", { enum: ["category", "tag"] }).notNull(),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("taxonomy_terms_kind_slug_unique").on(table.kind, table.slug),
   ],
 );
 
-export const contentTaxonomyTerms = pgTable(
+export const contentTaxonomyTerms = sqliteTable(
   "content_taxonomy_terms",
   {
     contentItemId: text("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
@@ -114,7 +117,7 @@ export const contentTaxonomyTerms = pgTable(
   (table) => [primaryKey({ columns: [table.contentItemId, table.termId] })],
 );
 
-export const siteSettings = pgTable("site_settings", {
+export const siteSettings = sqliteTable("site_settings", {
   id: text("id").primaryKey(),
   siteName: text("site_name").notNull(),
   siteDescription: text("site_description").notNull(),
@@ -122,33 +125,33 @@ export const siteSettings = pgTable("site_settings", {
   timezone: text("timezone").notNull(),
   homeHeroMediaId: text("home_hero_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
   updatedById: text("updated_by_id").references(() => users.id, { onDelete: "set null" }),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
 
-export const securitySettings = pgTable("security_settings", {
+export const securitySettings = sqliteTable("security_settings", {
   id: text("id").primaryKey(),
   maxLoginAttempts: integer("max_login_attempts").notNull(),
   lockoutMinutes: integer("lockout_minutes").notNull(),
   sessionDays: integer("session_days").notNull(),
   trustProxyHeaders: boolean("trust_proxy_headers").notNull().default(false),
   updatedById: text("updated_by_id").references(() => users.id, { onDelete: "set null" }),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
 
-export const loginAttempts = pgTable("login_attempts", {
+export const loginAttempts = sqliteTable("login_attempts", {
   keyHash: text("key_hash").primaryKey(),
   scope: text("scope", { enum: ["address", "identity"] }).notNull(),
   count: integer("count").notNull(),
-  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  resetAt: timestamp("reset_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
 });
 
-export const auditEvents = pgTable("audit_events", {
+export const auditEvents = sqliteTable("audit_events", {
   id: text("id").primaryKey(),
   actorId: text("actor_id").references(() => users.id),
   action: text("action").notNull(),
   subjectType: text("subject_type").notNull(),
   subjectId: text("subject_id"),
-  detail: jsonb("detail").$type<Record<string, unknown>>(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  detail: text("detail", { mode: "json" }).$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull(),
 });

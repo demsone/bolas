@@ -16,45 +16,50 @@ Bolas! is a slim publishing CMS cloned from Hearth and reduced to the magazine w
 
 ## What Was Removed
 
-Commerce, local modules, assistant tools, generic navigation builder, theme management UI, backup/restore UI, Docker/SQLite local storage, and other non-publishing bulk.
+Commerce, local modules, assistant tools, generic navigation builder, theme management UI, backup/restore UI, Supabase storage, Vercel-specific deployment wiring, and other non-publishing bulk.
 
 ## Local Setup
 
 1. Install Node.js 22 or newer.
-2. Copy `.env.example` to `.env.local` and fill in the Supabase and site values.
-3. Install dependencies:
+2. Install dependencies:
 
 ```sh
 npm install
 ```
 
-4. Apply the database migration:
-
-```sh
-npm run db:migrate
-```
-
-5. Start the app:
+3. Start the app:
 
 ```sh
 npm run dev
 ```
 
+Bolas creates its local SQLite database and media directory automatically under `data/`.
+
 Open `http://localhost:3000/setup` to create the owner account.
 
 You can also double-click `command.launcher` on macOS. The first run may take a moment while dependencies are checked.
 
-## Supabase
+## Local Data
 
-Create one Supabase project with:
+By default, runtime data lives here:
 
-- Postgres database
-- Storage bucket named `bolas-media`
-- A pooled Postgres connection string for `DATABASE_URL`
-- A service role key for server-side media uploads
+- `data/bolas.sqlite` for users, posts, pages, settings, taxonomy, sessions, and audit records
+- `data/media/` for uploaded and processed WebP images
 
-Required environment variables are listed in `.env.example`.
+Those files are ignored by Git. Backing up Bolas means backing up the `data/` folder.
 
-## Vercel
+Optional environment variables are listed in `.env.example` if you want to move the database or media folder elsewhere.
 
-Connect the GitHub repo to Vercel, then add the same environment variables in Vercel project settings for Production and Preview. Set `PUBLIC_SITE_URL` to the final production URL before launch so feeds, sitemap, and social previews use the right origin.
+## Self Hosting
+
+Deploy Bolas as a normal Node.js app on hosting you control:
+
+```sh
+npm install
+npm run build
+npm run start
+```
+
+Set `PUBLIC_SITE_URL` to the final public URL before launch so feeds, sitemap, and social previews use the right origin.
+
+For cPanel/Passenger hosting, set the application startup file to `server.js`.
