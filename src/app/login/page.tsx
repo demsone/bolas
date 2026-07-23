@@ -4,9 +4,11 @@ import { AuthForm } from "@/components/auth-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasAnyUser } from "@/lib/auth/users";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/admin");
-  if (!hasAnyUser()) redirect("/setup");
+  if (!(await hasAnyUser())) redirect("/setup");
 
   return (
     <main className="auth-shell">

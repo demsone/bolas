@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { getDb } from "@/lib/db/client";
-import { DEFAULT_SITE_SETTINGS, getSiteSettings } from "@/lib/settings/repository";
+import { DEFAULT_SITE_SETTINGS } from "@/lib/settings/repository";
 import { getSiteOrigin } from "@/lib/seo/site";
 import "./globals.css";
 
@@ -15,8 +14,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export async function generateMetadata(): Promise<Metadata> {
-  const settings = process.env.DATABASE_URL ? await getSiteSettings(getDb()) : DEFAULT_SITE_SETTINGS;
+export function generateMetadata(): Metadata {
+  const settings = DEFAULT_SITE_SETTINGS;
   return {
     metadataBase: new URL(getSiteOrigin()),
     title: {
